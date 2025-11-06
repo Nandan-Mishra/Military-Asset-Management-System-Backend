@@ -27,6 +27,9 @@ app.use('/api/transfers', require('./routes/transfers'));
 app.use('/api/assets', require('./routes/assets'));
 app.use('/api', require('./routes/assignments'));
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/favicon.png', (req, res) => res.status(204).end());
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
