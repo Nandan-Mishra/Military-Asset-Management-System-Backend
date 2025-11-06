@@ -7,30 +7,58 @@ dotenv.config();
 const app = require('../app');
 
 let cachedDb = null;
+let connectionPromise = null;
 
 async function connectToDatabase() {
   if (cachedDb && mongoose.connection.readyState === 1) {
     return cachedDb;
   }
 
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+
+  connectionPromise = mongoose.connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    connectTimeoutMS: 10000,
+    maxPoolSize: 10,
+  }).then((conn) => {
     cachedDb = conn;
     console.log('MongoDB Connected');
+    connectionPromise = null;
     return conn;
-  } catch (error) {
+  }).catch((error) => {
+    connectionPromise = null;
     console.error('MongoDB connection failed:', error.message);
     throw error;
-  }
+  });
+
+  return connectionPromise;
 }
 
 const handler = serverless(app);
 
 module.exports = async (req, res) => {
-  await connectToDatabase();
+  try {
+    await Promise.race([
+      connectToDatabase(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 8000)
+      )
+    ]);
+  } catch (error) {
+    console.error('Database connection error:', error.message);
+    if (!res.headersSent) {
+      return res.status(503).json({ 
+        message: 'Database connection failed. Please check your MongoDB configuration.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+  
   return handler(req, res);
 };
 
