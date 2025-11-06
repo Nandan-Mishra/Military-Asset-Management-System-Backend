@@ -1,4 +1,3 @@
-const serverless = require('serverless-http');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 
@@ -39,8 +38,6 @@ async function connectToDatabase() {
   return connectionPromise;
 }
 
-const handler = serverless(app);
-
 module.exports = async (req, res) => {
   try {
     await Promise.race([
@@ -58,8 +55,8 @@ module.exports = async (req, res) => {
       });
     }
   }
-  
-  return handler(req, res);
+  // Hand off to Express app directly (Vercel Node runtime supports this)
+  return app(req, res);
 };
 
 
